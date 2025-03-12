@@ -15,29 +15,29 @@ from mcp.types import (
     EmptyResult,
 )
 
-# .envファイルから環境変数を読み込む
+# Load environment variables from .env file
 load_dotenv()
 
-# ロギング設定
+# Logging configuration
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("sheet_mcp")
 
-# Google Sheets APIの認証情報ファイルパスを環境変数から取得
+# Get the path to the Google Sheets API credentials file from environment variables
 CREDENTIALS_FILE = os.getenv("GOOGLE_SHEETS_CREDENTIALS_FILE")
 
 if not CREDENTIALS_FILE:
     raise ValueError("Google Sheets credentials file path is required")
 
-# 認証スコープ
+# Authentication scopes
 SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/drive'
 ]
 
 try:
-    # 認証情報を設定
+    # Set up credentials
     credentials = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, SCOPES)
-    # gspreadクライアントの初期化
+    # Initialize gspread client
     client = gspread.authorize(credentials)
     logger.info("Successfully authenticated with Google Sheets API")
 except Exception as e:
@@ -46,7 +46,7 @@ except Exception as e:
 
 server = Server("sheet_mcp")
 
-# ツールのリストアップ
+# List available tools
 @server.list_tools()
 async def list_tools() -> list[Tool]:
     """List available tools for interacting with Google Sheets."""
@@ -261,7 +261,7 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
 
 async def handle_list_spreadsheets(arguments: Any) -> Sequence[TextContent]:
     """
-    利用可能なすべてのスプレッドシートを一覧表示する。
+    List all available spreadsheets.
     """
     try:
         spreadsheet_list = client.list_spreadsheet_files()
@@ -286,8 +286,8 @@ async def handle_list_spreadsheets(arguments: Any) -> Sequence[TextContent]:
 
 async def handle_open_spreadsheet(arguments: Any) -> Sequence[TextContent]:
     """
-    タイトルまたはURLでスプレッドシートを開く。
-    - 引数 arguments: {"identifier": "<スプレッドシートのタイトルまたはURL>"}
+    Open a spreadsheet by title or URL.
+    - arguments: {"identifier": "<spreadsheet title or URL>"}
     """
     if not isinstance(arguments, dict) or "identifier" not in arguments:
         raise ValueError("Invalid arguments for open_spreadsheet")
@@ -295,13 +295,13 @@ async def handle_open_spreadsheet(arguments: Any) -> Sequence[TextContent]:
     identifier = arguments["identifier"]
     
     try:
-        # URLかどうかをチェック
+        # Check if it's a URL
         if "https://docs.google.com/spreadsheets/d/" in identifier:
-            # URLからIDを抽出
+            # Extract ID from URL
             sheet_id = identifier.split("/d/")[1].split("/")[0]
             spreadsheet = client.open_by_key(sheet_id)
         else:
-            # タイトルで検索
+            # Search by title
             spreadsheet = client.open(identifier)
         
         spreadsheet_info = {
@@ -330,8 +330,8 @@ async def handle_open_spreadsheet(arguments: Any) -> Sequence[TextContent]:
 
 async def handle_list_worksheets(arguments: Any) -> Sequence[TextContent]:
     """
-    スプレッドシート内のすべてのワークシートを一覧表示する。
-    - 引数 arguments: {"spreadsheet_id": "<スプレッドシートID>"}
+    List all worksheets in the currently opened spreadsheet.
+    - arguments: {"spreadsheet_id": "<spreadsheet ID>"}
     """
     if not isinstance(arguments, dict) or "spreadsheet_id" not in arguments:
         raise ValueError("Invalid arguments for list_worksheets")
@@ -369,11 +369,11 @@ async def handle_list_worksheets(arguments: Any) -> Sequence[TextContent]:
 
 async def handle_read_worksheet(arguments: Any) -> Sequence[TextContent]:
     """
-    ワークシートからデータを読み込む。
-    - 引数 arguments: {
-        "spreadsheet_id": "<スプレッドシートID>",
-        "worksheet_name": "<ワークシート名>",
-        "range": "<範囲>" (オプション)
+    Read data from a worksheet.
+    - arguments: {
+        "spreadsheet_id": "<spreadsheet ID>",
+        "worksheet_name": "<worksheet name>",
+        "range": "<range>" (optional)
     }
     """
     if not isinstance(arguments, dict) or "spreadsheet_id" not in arguments or "worksheet_name" not in arguments:
@@ -418,12 +418,12 @@ async def handle_read_worksheet(arguments: Any) -> Sequence[TextContent]:
 
 async def handle_update_cell(arguments: Any) -> Sequence[TextContent]:
     """
-    ワークシートの単一セルを更新する。
-    - 引数 arguments: {
-        "spreadsheet_id": "<スプレッドシートID>",
-        "worksheet_name": "<ワークシート名>",
-        "cell": "<セル参照（例：A1）>",
-        "value": <更新する値>
+    Update a single cell in a worksheet.
+    - arguments: {
+        "spreadsheet_id": "<spreadsheet ID>",
+        "worksheet_name": "<worksheet name>",
+        "cell": "<cell reference (e.g., A1)>",
+        "value": <value to update>
     }
     """
     if not isinstance(arguments, dict) or not all(k in arguments for k in ["spreadsheet_id", "worksheet_name", "cell", "value"]):
@@ -466,12 +466,12 @@ async def handle_update_cell(arguments: Any) -> Sequence[TextContent]:
 
 async def handle_update_range(arguments: Any) -> Sequence[TextContent]:
     """
-    ワークシートの範囲を更新する。
-    - 引数 arguments: {
-        "spreadsheet_id": "<スプレッドシートID>",
-        "worksheet_name": "<ワークシート名>",
-        "range": "<範囲（例：A1:B2）>",
-        "values": [[値1, 値2], [値3, 値4]] // 2次元配列
+    Update a range of cells in a worksheet.
+    - arguments: {
+        "spreadsheet_id": "<spreadsheet ID>",
+        "worksheet_name": "<worksheet name>",
+        "range": "<range (e.g., A1:B2)>",
+        "values": [[value1, value2], [value3, value4]] // 2D array
     }
     """
     if not isinstance(arguments, dict) or not all(k in arguments for k in ["spreadsheet_id", "worksheet_name", "range", "values"]):
@@ -514,11 +514,11 @@ async def handle_update_range(arguments: Any) -> Sequence[TextContent]:
 
 async def handle_append_row(arguments: Any) -> Sequence[TextContent]:
     """
-    ワークシートに行を追加する。
-    - 引数 arguments: {
-        "spreadsheet_id": "<スプレッドシートID>",
-        "worksheet_name": "<ワークシート名>",
-        "values": [値1, 値2, 値3, ...] // 1次元配列
+    Append a row to a worksheet.
+    - arguments: {
+        "spreadsheet_id": "<spreadsheet ID>",
+        "worksheet_name": "<worksheet name>",
+        "values": [value1, value2, value3, ...] // 1D array
     }
     """
     if not isinstance(arguments, dict) or not all(k in arguments for k in ["spreadsheet_id", "worksheet_name", "values"]):
@@ -560,8 +560,8 @@ async def handle_append_row(arguments: Any) -> Sequence[TextContent]:
 
 async def handle_create_spreadsheet(arguments: Any) -> Sequence[TextContent]:
     """
-    新しいスプレッドシートを作成する。
-    - 引数 arguments: {"title": "<新しいスプレッドシートのタイトル>"}
+    Create a new spreadsheet.
+    - arguments: {"title": "<title for the new spreadsheet>"}
     """
     if not isinstance(arguments, dict) or "title" not in arguments:
         raise ValueError("Invalid arguments for create_spreadsheet")
@@ -589,12 +589,12 @@ async def handle_create_spreadsheet(arguments: Any) -> Sequence[TextContent]:
 
 async def handle_create_worksheet(arguments: Any) -> Sequence[TextContent]:
     """
-    既存のスプレッドシートに新しいワークシートを作成する。
-    - 引数 arguments: {
-        "spreadsheet_id": "<スプレッドシートID>",
-        "title": "<新しいワークシートのタイトル>",
-        "rows": <行数> (オプション、デフォルト: 100),
-        "cols": <列数> (オプション、デフォルト: 26)
+    Create a new worksheet in an existing spreadsheet.
+    - arguments: {
+        "spreadsheet_id": "<spreadsheet ID>",
+        "title": "<title for the new worksheet>",
+        "rows": <number of rows> (optional, default: 100),
+        "cols": <number of columns> (optional, default: 26)
     }
     """
     if not isinstance(arguments, dict) or not all(k in arguments for k in ["spreadsheet_id", "title"]):
